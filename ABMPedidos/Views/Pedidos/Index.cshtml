@@ -1,0 +1,248 @@
+﻿@model IEnumerable<ABMPedidos.Models.Pedido>
+
+@{
+    ViewData["Title"] = "Pedidos";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h1>Pedidos</h1>
+<p>
+    <a href="#pedidoModal" class="btnPedido" data-toggle="modal" data-id="0"><i class="fas fa-plus-circle fa-2x color_add" title="Nuevo Pedido"></i></a>
+</p>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th width="7%">
+                Nº de Pedido
+            </th>
+            <th width="13%">
+                Fecha y Hora
+            </th>
+            <th width="25%">
+                Domicilio
+            </th>
+            <th width="25%">
+                Cliente
+            </th>
+            <th width="10%">
+                Cant. de Empanadas
+            </th>
+            <th width="10%">
+                Total ($)
+            </th>
+            <th width="10%"></th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (Model != null)
+        {
+            foreach (var item in Model)
+            {
+                <tr>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.IdPedido)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Fecha)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.Direccion)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.NombreYapellido)
+                    </td>
+                    <td>
+                        @Html.DisplayFor(modelItem => item.TotalEmpanadas)
+                    </td>
+                    <td>
+                        @String.Format("{0:C}", item.ImportePedido)
+                    </td>
+                    <td>
+                        <a href="#pedidoModal" class="btnEdit" data-toggle="modal" data-id="@item.IdPedido"><i class="fas fa-edit color_add" title="Editar"></i></a>
+                        <a class="btnEliminaPedido" data-id="@item.IdPedido" href="#"><i class="fas fa-trash color_add" title="Eliminar Pedido"></i></a>
+                        @*HIDDEN*@
+                        <input type="hidden" id="fecha" value="@item.Fecha" />
+                        <input type="hidden" id="nombreYapellido" value="@item.NombreYapellido" />
+                        <input type="hidden" id="direccion" value="@item.Direccion" />
+                        <input type="hidden" id="totalEmpanadas" value="@item.TotalEmpanadas" />
+                    </td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@*MODAL PEDIDO*@
+<div id="pedidoModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="exampleModalCenterTitle" aria-hidden="true" data-keyboard="false" data-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-content">
+                    Cargando ...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script type="text/javascript">
+
+        const formatterPeso = new Intl.NumberFormat('es-AR', {
+            style: 'currency',
+            currency: 'ARS',
+            minimumFractionDigits: 2
+        })
+
+        $(".btnEdit").click(function (eve) {
+            $("#modal-content").load("/Pedidos/VerEdit?Id=" + $(this).data("id"));
+        });
+
+        $(".btnPedido").click(function (eve) {
+            $("#modal-content").load("/Pedidos/VerEdit?Id=0");
+        });
+
+        $(".btnEliminaPedido").click(function (eve) {
+            var opcion = confirm("Seguro que desea borrar este pedido?"); 
+            if (opcion) {
+                var url = "/Pedidos/DeletePedido?id=" + parseInt($(this).data("id"));
+                $.ajax({
+                    async: true,
+                    type: "DELETE",
+                    url: url,
+                    data: null,
+                    success: function (data) {
+                        alert("Pedido eliminado correctamente.");
+                        window.location.href = "/Pedidos/Index";
+                    },
+                    error: function (data) {
+                        alert("Error al eliminar el pedido.");
+                    }
+                });
+            }
+        });
+
+        function AgregaEmpanada() {
+            addRow("DetallePedidoTable");
+        }
+
+        function addRow(tableID) {
+            // Obtiene una referencia a la tabla
+            let tableRef = document.getElementById(tableID);
+
+            let totalFilas = tableRef.rows.length;
+
+            // Inserta una fila en la tabla
+            let cant = document.getElementById("cantidad").value;
+            let str = $('#cmbGustos option:selected').html();
+            let pos = str.indexOf(" - ");
+            let desc = str.substr(0, pos);
+            let precio = str.substr(pos + 5);
+            let idGusto = $('#cmbGustos option:selected').val();
+
+            //obtengo el máximo id
+            let inputs = tableRef.getElementsByTagName("input");
+            let maxId = 0;
+            for (let i = 0; i < inputs.length; i++) {
+                let id = $(inputs[i]).attr('id');
+                id = parseInt(id.substr(4));
+                if (id >= maxId) {
+                    maxId = id;
+                }
+            };
+            maxId = maxId + 1;
+
+            //Calculo el precio de lo insertado
+            let precioFila = parseFloat(precio) * parseFloat(cant);
+            let tdNuevo = '<td>' + cant + '</td><td>' + desc + '</td><td><a href="#" class="btnEliminar" onclick="remove(this)"><i class="fas fa-trash color_add" title="Eliminar"></i></a></td><td><input type="hidden" id="prc_' + maxId + '" value="' + precioFila + '" /></td><td><input type="hidden" id="gto_' + maxId + '" value="' + idGusto + '" /></td>';
+
+            tableRef.insertRow(totalFilas).innerHTML = tdNuevo;
+
+            //Actualizo el precio total
+            actualizaPrecio(precioFila);
+        }
+
+        function AgregaHidden(fila, cantidad, precio, idGusto) {
+            fila = fila - 1;
+            let DivDetallePedido = document.getElementById("DivDetallePedido");
+
+            let HiddenIdPedido = document.createElement("input");
+            let HiddenCantidad = document.createElement("input");
+            let HiddenGusto = document.createElement("input");
+            let HiddenPrecio = document.createElement("input");
+
+            HiddenIdPedido.name = "detallePedidos[" + fila + "].IdPedido";
+            HiddenIdPedido.id = "detallePedidos[" + fila + "].IdPedido";
+            HiddenIdPedido.type = "hidden";
+            HiddenIdPedido.value = document.getElementById("IdPedido").value;
+
+            HiddenCantidad.name = "detallePedidos[" + fila + "].Cantidad";
+            HiddenCantidad.id = "detallePedidos[" + fila + "].Cantidad";
+            HiddenCantidad.type = "hidden";
+            HiddenCantidad.value = cantidad;
+
+            HiddenGusto.name = "detallePedidos[" + fila + "].IdGusto";
+            HiddenGusto.id = "detallePedidos[" + fila + "].IdGusto";
+            HiddenGusto.type = "hidden";
+            HiddenGusto.value = idGusto;
+
+            HiddenPrecio.name = "detallePedidos[" + fila + "].Total";
+            HiddenPrecio.id = "detallePedidos[" + fila + "].Total";
+            HiddenPrecio.type = "hidden";
+            HiddenPrecio.value = precio;
+
+            DivDetallePedido.appendChild(HiddenIdPedido);
+            DivDetallePedido.appendChild(HiddenCantidad);
+            DivDetallePedido.appendChild(HiddenGusto);
+            DivDetallePedido.appendChild(HiddenPrecio);
+
+            //Actualiza el estado
+            if (!document.getElementById("enviado").checked) {
+                document.getElementById("Estado").value = 1;
+            }
+            else {
+                document.getElementById("Estado").value = 2;
+            }
+        }
+
+        function actualizaPrecio(precio) {
+            var precioPedido = document.getElementById("total").value.substr(2);
+            precioPedido = parseFloat(precioPedido) + parseFloat(precio);
+            document.getElementById("total").value = formatterPeso.format(precioPedido);
+            document.getElementById("importePedido").value = precioPedido;
+        }
+
+        function remove(el) {
+            //obtengo el precio
+            let precio = $(el).closest("tr").find('input[type="hidden"]').val();
+
+            //obtengo el id de fila
+            let id = $(el).closest("tr").find('input[type="hidden"]').prop("id");
+            id = id.substr(4);
+
+            //Actualizo el precio total
+            actualizaPrecio(precio * (-1));
+
+            //Remuevo la fila
+            $(el).closest("tr").remove();
+        }
+
+        function GuardaPedido() {
+            var tableRef = document.getElementById("DetallePedidoTable");
+            var totalFilas = tableRef.rows.length;
+            var totEmp = 0
+            for (let i = 1; i < totalFilas; i++) {
+                var fila = tableRef.rows[i];
+                var cantidad = parseInt(fila.cells[0].innerHTML);
+                var precio = parseInt($(fila.cells[3]).find('input[type="hidden"]').val());
+                var gusto = parseInt($(fila.cells[4]).find('input[type="hidden"]').val());
+                AgregaHidden(i, cantidad, precio, gusto);
+                totEmp = parseInt(totEmp) + parseInt(cantidad);
+            }
+            document.getElementById("TotalEmpanadas").value = totEmp;
+        }
+    </script>
+}

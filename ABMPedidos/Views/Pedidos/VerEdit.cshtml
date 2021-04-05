@@ -1,0 +1,167 @@
+﻿@model Pedido
+@{
+    ViewData["Title"] = "Pedido";
+    Layout = null;
+    List<MediosDePago> mediosDePago = ViewBag.MediosDePago;
+    List<Gusto> gustos = ViewBag.Gustos;
+    List<DetallePedido> detallePedido = ViewBag.DetallePedido;
+}
+
+@using (Html.BeginForm("GurdaPedido", "Pedidos", FormMethod.Post))
+{
+    @if ((Model != null) && (Model.IdPedido != 0))
+    {
+        <h1>Pedido Nº @Model.IdPedido</h1>
+    }
+    else
+    {
+        <h1>Pedido</h1>
+    }
+    <hr />
+    <div class="form-group">
+        <div class="row">
+            <div class="col-lg-2">
+                <label class="form-control" style="border:none">Cliente:</label>
+            </div>
+            <div class="col-lg-10">
+                @Html.TextBoxFor(x => x.NombreYapellido, new { @class = "form-control", placeholder = "Nombre y Apellido" })
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-2">
+                <label class="form-control" style="border:none">Dirección:</label>
+            </div>
+            <div class="col-lg-10">
+                @Html.TextBoxFor(x => x.Direccion, new { @class = "form-control", placeholder = "Dirección" })
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-3">
+                <label for="medioDePago" class="form-control" style="border:none">Medio de Pago:</label>
+            </div>
+            <div class="col-lg-9">
+                <select class="form-control" name="MedioPago" id="MedioPago">
+
+                    @if (Model != null)
+                    {
+                        foreach (var medioPago in mediosDePago)
+                        {
+                            if (Model.MedioPago == medioPago.IdMedioPago)
+                            {
+                                <option value="@medioPago.IdMedioPago" selected="selected">@medioPago.Descripcion</option>
+                            }
+                            else
+                            {
+                                <option value="@medioPago.IdMedioPago">@medioPago.Descripcion</option>
+                            }
+                        }
+                    }
+                    else
+                    {
+                        foreach (var medioPago in mediosDePago)
+                        {
+                            <option value="@medioPago.IdMedioPago">@medioPago.Descripcion</option>
+                        }
+                    }
+                </select>
+            </div>
+        </div>
+        <hr />
+        <div class="row">
+            <div class="col-lg-2">
+                <label for="cantidad" class="form-control" style="border:none">Cantidad:</label>
+            </div>
+            <div class="col-lg-2">
+                <input type="number" id="cantidad" name="cantidad" class="form-control" min="1" max="100" value="1" />
+            </div>
+            <div class="col-lg-7">
+
+                <select class="form-control" id="cmbGustos">
+                    @foreach (var gusto in gustos)
+                    {
+                        <option value="@gusto.IdGusto">@gusto.Descripcion - @String.Format("{0:C}", gusto.Precio)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-1">
+                <a href="#" class="btnAgregaEmpanada" data-toggle="modal" data-id="0" onclick="AgregaEmpanada();"><i class="fas fa-plus-circle fa-2x color_add" title="Agregar Empanadas"></i></a>
+            </div>
+        </div>
+        <div class="row">
+            <table class="table table-striped" id="DetallePedidoTable" name="DetallePedidoTable">
+                <thead>
+                    <tr>
+                        <th width="20%">Cantidad</th>
+                        <th width="70%">Empanada</th>
+                        <th width="10%"></th>
+                        <th width="0%"></th> @*Total*@
+                        <th width="0%"></th> @*IdGusto*@
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null)
+                    {
+                        int j = 0;
+                        if (Model.detallePedidos != null)
+                        {
+                            foreach (var detPedido in Model.detallePedidos)
+                            {
+                                <tr>
+                                    <td>@detPedido.Cantidad</td>
+                                    <td>@gustos[detPedido.IdGusto - 1].Descripcion</td>
+                                    <td><a href="#" class="btnEliminar" onclick="remove(this)"><i class="fas fa-trash color_add" title="Eliminar"></i></a></td>
+                                    <td><input type="hidden" id="prc_@j" value="@detPedido.Total" /></td>
+                                    <td><input type="hidden" id="gto_@j" value="@detPedido.IdGusto - 1" /></td>
+                                </tr>
+                                j++;
+                            }
+                        }
+
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="row">
+            <div class="col-lg-2">
+                <label for="total" class="form-control" style="border:none">Total($):</label>
+            </div>
+            <div class="col-lg-3">
+                @if (Model != null)
+                {
+                    <input type="text" id="total" name="total" class="form-control" value="@String.Format("{0:C}", Model.ImportePedido)" disabled="disabled" />
+                }
+                else
+                {
+                    <input type="text" id="total" name="total" class="form-control" value="" disabled="disabled" />
+                }
+            </div>
+            <div class="col-lg-2">
+                <label for="enviado" style="border:none">Enviado?</label>
+            </div>
+            <div class="col-lg-2">
+                <input type="checkbox" id="enviado" name="enviado" class="form-control" />
+            </div>
+        </div>
+        <hr />
+        <div class="row">
+            <div class="col-lg-12 align-items-md-end">
+                <button type="submit" id="btnGuardar" class="btn btn-outline-primary float-right" onclick="GuardaPedido();">Guardar</button>
+                @Html.ActionLink("Cancelar", "Index", "Pedidos", null, new { @class = "btn btn-outline-danger float-lg-right" })
+            </div>
+        </div>
+        <div id="hiddenPedido">
+            @if (Model != null)
+            {
+                <input type="hidden" name="importePedido" id="importePedido" value="@Model.ImportePedido" />
+                <input type="hidden" name="IdPedido" id="IdPedido" value="@Model.IdPedido" />
+                <input type="hidden" name="Estado" id="Estado" value="@Model.Estado" />
+                <input type="hidden" name="TotalEmpanadas" id="TotalEmpanadas" value="@Model.TotalEmpanadas" />
+                <input type="hidden" name="Fecha" id="Fecha" value="@Model.Fecha" />
+            }
+
+            <div id="DivDetallePedido">
+
+            </div>
+        </div>
+    </div>
+}
